@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-from valutatrade_hub.cli.interface import TradingCLI
+from valutatrade_hub.cli.interface import CLIInterface
 
 
 def main():
     
-    cli = TradingCLI()
+    cli = CLIInterface()
     cli.run()
 
 

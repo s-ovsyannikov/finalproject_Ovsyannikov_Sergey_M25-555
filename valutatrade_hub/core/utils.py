@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 from datetime import datetime
 
 
@@ -10,7 +10,7 @@ class DataManager:
         self._ensure_data_dir()
 
     def _ensure_data_dir(self):
-        """создание data/ если отсутствует"""
+        """создает папку для данных, если она не существует"""
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
 
@@ -18,7 +18,7 @@ class DataManager:
         return os.path.join(self.data_dir, filename)
 
     def load_json(self, filename: str, default: Any = None) -> Any:
-        """загрузка из json файла"""
+        """читает JSON файл и возвращает данные"""
         filepath = self._get_file_path(filename)
         if not os.path.exists(filepath):
             return default if default is not None else []
@@ -30,10 +30,17 @@ class DataManager:
             return default if default is not None else []
 
     def save_json(self, filename: str, data: Any):
-        """сохраенение в json файл"""
+        """записывает данные в JSON файл"""
         filepath = self._get_file_path(filename)
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False, default=str)
+
+    def get_next_user_id(self) -> int:
+        """генерация следующего ID пользователя"""
+        users = self.load_json("users.json", [])
+        if not users:
+            return 1
+        return max(user["user_id"] for user in users) + 1
 
 
 class ExchangeRateService:
@@ -44,7 +51,7 @@ class ExchangeRateService:
             "BTC_USD": {"rate": 59337.21, "updated_at": datetime.now().isoformat()},
             "RUB_USD": {"rate": 0.01016, "updated_at": datetime.now().isoformat()},
             "ETH_USD": {"rate": 3720.00, "updated_at": datetime.now().isoformat()},
-            "source": "DefaultRates",
+            "source": "ParserService",
             "last_refresh": datetime.now().isoformat()
         }
 
@@ -57,16 +64,15 @@ class ExchangeRateService:
         return rates
 
     def get_rate(self, from_currency: str, to_currency: str):
-        
-        rates = self.get_rates()
-        
+        """получение обменного курса"""
         if from_currency == to_currency:
             return 1.0
         
+        rates = self.get_rates()
         rate_key = f"{from_currency}_{to_currency}"
+        
         if rate_key in rates:
             return rates[rate_key]["rate"]
-        
         
         reverse_key = f"{to_currency}_{from_currency}"
         if reverse_key in rates:
@@ -74,9 +80,14 @@ class ExchangeRateService:
         
         return None
 
-    def update_rates(self, new_rates: Dict):
-        """обновление курсов"""
-        current_rates = self.get_rates()
-        current_rates.update(new_rates)
-        current_rates["last_refresh"] = datetime.now().isoformat()
-        self.data_manager.save_json("rates.json", current_rates)
+
+def validate_currency_code(currency_code: str) -> bool:
+    """проверка валидности кода валюты"""
+    return (isinstance(currency_code, str) and 
+            len(currency_code) >= 2 and 
+            len(currency_code) <= 5 and
+            currency_code.isalpha())
+
+def validate_amount(amount: float) -> bool:
+    """проверка валидности суммы"""
+    return isinstance(amount, (int, float)) and amount > 0

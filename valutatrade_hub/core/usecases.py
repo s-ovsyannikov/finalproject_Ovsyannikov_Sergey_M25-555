@@ -1,8 +1,11 @@
 from typing import Optional, Dict, Any
 from datetime import datetime
 import secrets
-from .models import User, Wallet, Portfolio
-from .utils import DataManager, ExchangeRateService
+from .models import User, Portfolio
+from .utils import DataManager, ExchangeRateService, validate_amount
+from .exceptions import InsufficientFundsError, CurrencyNotFoundError
+from .currencies import get_currency
+from ..decorators import log_action
 
 
 class UserManager:
@@ -10,75 +13,60 @@ class UserManager:
         self.data_manager = data_manager
         self.current_user: Optional[User] = None
 
+    @log_action("REGISTER")
     def register_user(self, username: str, password: str) -> User:
         """регистрация пользователя"""
+        if not username or not username.strip():
+            raise ValueError("Username cannot be empty")
+        
         if len(password) < 4:
             raise ValueError("Password must be at least 4 characters long")
-        
         
         users_data = self.data_manager.load_json("users.json", [])
         if any(user["username"] == username for user in users_data):
             raise ValueError(f"Username '{username}' already exists")
         
-        user_id = max([user.get("user_id", 0) for user in users_data], default=0) + 1
-        
-        
+        user_id = self.data_manager.get_next_user_id()
         salt = secrets.token_hex(8)
         hashed_password = self._hash_password(password, salt)
         registration_date = datetime.now()
         
         user = User(user_id, username, hashed_password, salt, registration_date)
         
-        
-        users_data.append({
-            "user_id": user_id,
-            "username": username,
-            "hashed_password": hashed_password,
-            "salt": salt,
-            "registration_date": registration_date.isoformat()
-        })
+        users_data.append(user.to_dict())
         self.data_manager.save_json("users.json", users_data)
-        
         
         self._create_user_portfolio(user_id)
         
         return user
 
+    @log_action("LOGIN")
     def login(self, username: str, password: str) -> User:
-        
+        """аутентификация пользователя"""
         users_data = self.data_manager.load_json("users.json", [])
         
         for user_data in users_data:
             if user_data["username"] == username:
-                
-                test_hash = self._hash_password(password, user_data["salt"])
-                if test_hash == user_data["hashed_password"]:
-                    user = User(
-                        user_data["user_id"],
-                        user_data["username"],
-                        user_data["hashed_password"],
-                        user_data["salt"],
-                        datetime.fromisoformat(user_data["registration_date"])
-                    )
+                user = User.from_dict(user_data)
+                if user.verify_password(password):
                     self.current_user = user
                     return user
+                else:
+                    raise ValueError("Invalid password")
         
-        raise ValueError("Invalid username or password")
+        raise ValueError(f"User '{username}' not found")
 
     def logout(self):
-        
+        """выход из системы"""
         self.current_user = None
 
     def _create_user_portfolio(self, user_id: int):
-        
+        """пустой портфель для пользователя"""
         portfolios_data = self.data_manager.load_json("portfolios.json", [])
         
-        
         if not any(portfolio["user_id"] == user_id for portfolio in portfolios_data):
-            portfolios_data.append({
-                "user_id": user_id,
-                "wallets": {}
-            })
+            portfolio = Portfolio(user_id)
+            portfolios_data.append(portfolio.to_dict())
             self.data_manager.save_json("portfolios.json", portfolios_data)
 
     @staticmethod
@@ -93,58 +81,66 @@ class PortfolioManager:
         self.rate_service = rate_service
 
     def get_user_portfolio(self, user_id: int) -> Portfolio:
-        
+        """получает портфель пользователя"""
         portfolios_data = self.data_manager.load_json("portfolios.json", [])
         
         for portfolio_data in portfolios_data:
             if portfolio_data["user_id"] == user_id:
-                wallets = {}
-                for currency_code, wallet_data in portfolio_data.get("wallets", {}).items():
-                    wallets[currency_code] = Wallet(
-                        currency_code, 
-                        wallet_data.get("balance", 0.0)
-                    )
-                return Portfolio(user_id, wallets)
-        
-        
+                return Portfolio.from_dict(portfolio_data)
+
         portfolio = Portfolio(user_id)
         self._save_portfolio(portfolio)
         return portfolio
 
+    @log_action("BUY", verbose=True)
     def buy_currency(self, user_id: int, currency_code: str, amount: float) -> Dict[str, Any]:
-        
-        if amount <= 0:
+        """покупка валюты"""
+        if not validate_amount(amount):
             raise ValueError("Amount must be positive")
+
+        try:
+            get_currency(currency_code)
+        except CurrencyNotFoundError:
+            raise CurrencyNotFoundError(currency_code)
         
         portfolio = self.get_user_portfolio(user_id)
         currency_code = currency_code.upper()
-        
         
         if currency_code not in portfolio.wallets:
             portfolio.add_currency(currency_code)
         
         wallet = portfolio.get_wallet(currency_code)
+        old_balance = wallet.balance
         wallet.deposit(amount)
-        
         
         self._save_portfolio(portfolio)
         
-        
-        rate = self.rate_service.get_rate(currency_code, "USD")
-        estimated_cost = amount * rate if rate else None
+        try:
+            rate = self.rate_service.get_rate(currency_code, "USD")
+            estimated_cost = amount * rate
+        except CurrencyNotFoundError:
+            rate = None
+            estimated_cost = None
         
         return {
             "currency": currency_code,
             "amount": amount,
-            "new_balance": wallet.balance,
+            "rate": rate,
             "estimated_cost": estimated_cost,
-            "rate": rate
+            "old_balance": old_balance,
+            "new_balance": wallet.balance
         }
 
+    @log_action("SELL", verbose=True)
     def sell_currency(self, user_id: int, currency_code: str, amount: float) -> Dict[str, Any]:
-        
-        if amount <= 0:
+        """продажа валюты"""
+        if not validate_amount(amount):
             raise ValueError("Amount must be positive")
+        
+        try:
+            get_currency(currency_code)
+        except CurrencyNotFoundError:
+            raise CurrencyNotFoundError(currency_code)
         
         portfolio = self.get_user_portfolio(user_id)
         currency_code = currency_code.upper()
@@ -153,47 +149,43 @@ class PortfolioManager:
         if not wallet:
             raise ValueError(f"You don't have wallet for currency '{currency_code}'")
         
-        wallet.withdraw(amount)
+        old_balance = wallet.balance
         
+        try:
+            wallet.withdraw(amount)
+        except InsufficientFundsError:
+            raise InsufficientFundsError(currency_code, old_balance, amount)
         
         self._save_portfolio(portfolio)
         
-        
-        rate = self.rate_service.get_rate(currency_code, "USD")
-        estimated_revenue = amount * rate if rate else None
+        try:
+            rate = self.rate_service.get_rate(currency_code, "USD")
+            estimated_revenue = amount * rate
+        except CurrencyNotFoundError:
+            rate = None
+            estimated_revenue = None
         
         return {
             "currency": currency_code,
             "amount": amount,
-            "new_balance": wallet.balance,
+            "rate": rate,
             "estimated_revenue": estimated_revenue,
-            "rate": rate
+            "old_balance": old_balance,
+            "new_balance": wallet.balance
         }
 
     def _save_portfolio(self, portfolio: Portfolio):
-        """Save portfolio to JSON"""
+        """сохраняет портфель в JSON"""
         portfolios_data = self.data_manager.load_json("portfolios.json", [])
         
-        
         found = False
-        for portfolio_data in portfolios_data:
+        for i, portfolio_data in enumerate(portfolios_data):
             if portfolio_data["user_id"] == portfolio.user_id:
-                wallets_data = {}
-                for currency_code, wallet in portfolio.wallets.items():
-                    wallets_data[currency_code] = wallet.get_balance_info()
-                portfolio_data["wallets"] = wallets_data
+                portfolios_data[i] = portfolio.to_dict()
                 found = True
                 break
         
-        
         if not found:
-            wallets_data = {}
-            for currency_code, wallet in portfolio.wallets.items():
-                wallets_data[currency_code] = wallet.get_balance_info()
-            
-            portfolios_data.append({
-                "user_id": portfolio.user_id,
-                "wallets": wallets_data
-            })
+            portfolios_data.append(portfolio.to_dict())
         
         self.data_manager.save_json("portfolios.json", portfolios_data)

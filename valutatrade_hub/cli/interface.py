@@ -1,258 +1,289 @@
-from datetime import datetime
+import argparse
+from typing import Optional
 from ..core.utils import DataManager, ExchangeRateService
 from ..core.usecases import UserManager, PortfolioManager
+from ..core.exceptions import InsufficientFundsError, CurrencyNotFoundError
+from ..core.currencies import get_all_currencies
+from ..core.models import User
 
 
-class TradingCLI:
+class CLIInterface:
     def __init__(self):
         self.data_manager = DataManager()
         self.rate_service = ExchangeRateService(self.data_manager)
         self.user_manager = UserManager(self.data_manager)
         self.portfolio_manager = PortfolioManager(self.data_manager, self.rate_service)
-
-    def run(self):
-        
-        self._print_welcome()
-        
-        while True:
-            try:
-                command = input("\n> ").strip()
-                if not command:
-                    continue
-                    
-                if command == "exit":
-                    break
-                elif command.startswith("register"):
-                    self._handle_register(command)
-                elif command.startswith("login"):
-                    self._handle_login(command)
-                elif command.startswith("show-portfolio"):
-                    self._handle_show_portfolio(command)
-                elif command.startswith("buy"):
-                    self._handle_buy(command)
-                elif command.startswith("sell"):
-                    self._handle_sell(command)
-                elif command.startswith("get-rate"):
-                    self._handle_get_rate(command)
-                elif command == "help":
-                    self._print_help()
-                else:
-                    print("Unknown command. Type 'help' for available commands.")
-                    
-            except Exception as e:
-                print(f"Error: {e}")
-
-    def _print_welcome(self):
-        print("=== ValutaTrade Hub ===")
-        print("Available commands: register, login, show-portfolio, buy, sell, get-rate, help, exit")
-
-
-    def _print_help(self):
-        help_text = """
-Available commands:
-
-register --username <username> --password <password>
-    Register new user
-
-login --username <username> --password <password>
-    Login to system
-
-show-portfolio [--base <currency>]
-    Show portfolio with total value
-
-buy --currency <code> --amount <amount>
-    Buy currency
-
-sell --currency <code> --amount <amount>
-    Sell currency
-
-get-rate --from <currency> --to <currency>
-    Get exchange rate
-
-help
-    Show this help
-
-exit
-    Exit application
-"""
-        print(help_text)
-
-    def _parse_args(self, command: str) -> dict:
-        
-        args = {}
-        parts = command.split()
-        i = 1
-        while i < len(parts):
-            if parts[i].startswith("--"):
-                key = parts[i][2:]
-                if i + 1 < len(parts) and not parts[i + 1].startswith("--"):
-                    args[key] = parts[i + 1]
-                    i += 2
-                else:
-                    args[key] = True
-                    i += 1
-            else:
-                i += 1
-        return args
-
-    def _handle_register(self, command: str):
-        args = self._parse_args(command)
-        
-        username = args.get("username")
-        password = args.get("password")
-        
-        if not username or not password:
-            print("Usage: register --username <username> --password <password>")
-            return
-        
+        self.current_user: Optional[User] = None
+    
+    def register(self, args):
+        """Команда register - создать нового пользователя"""
         try:
-            user = self.user_manager.register_user(username, password)
-            print(f"User '{username}' registered successfully (id={user.user_id}).")
-            print(f"Login: login --username {username} --password ****")
+            user = self.user_manager.register_user(args.username, args.password)
+            print(f"User '{user.username}' registered (id={user.user_id}). Login: login --username {user.username} --password ****")
         except ValueError as e:
-            print(f"Registration failed: {e}")
-
-    def _handle_login(self, command: str):
-        args = self._parse_args(command)
-        
-        username = args.get("username")
-        password = args.get("password")
-        
-        if not username or not password:
-            print("Usage: login --username <username> --password <password>")
-            return
-        
+            print(f"Error: {e}")
+    
+    def login(self, args):
+        """Команда login - войти в систему"""
         try:
-            user = self.user_manager.login(username, password)
-            print(f"Welcome, {username}!")
+            self.current_user = self.user_manager.login(args.username, args.password)
+            print(f"Logged in as '{self.current_user.username}'")
         except ValueError as e:
-            print(f"Login failed: {e}")
-
-    def _handle_show_portfolio(self, command: str):
-        if not self.user_manager.current_user:
-            print("Please login first")
+            print(f"Error: {e}")
+    
+    def show_portfolio(self, args):
+        """Команда show-portfolio - показать портфель"""
+        if not self.current_user:
+            print("Error: Please login first")
             return
         
-        args = self._parse_args(command)
-        base_currency = args.get("base", "USD").upper()
-        
         try:
-            portfolio = self.portfolio_manager.get_user_portfolio(
-                self.user_manager.current_user.user_id
-            )
-            rates = self.rate_service.get_rates()
+            portfolio = self.portfolio_manager.get_user_portfolio(self.current_user.user_id)
             
-            print(f"\nPortfolio of user '{self.user_manager.current_user.username}' (base: {base_currency}):")
-            print("-" * 50)
+            base_currency = args.base.upper() if args.base else 'USD'
             
-            total_value = 0
+            print(f"Portfolio of user '{self.current_user.username}' (base: {base_currency}):")
+            
+            if not portfolio.wallets:
+                print("  Portfolio is empty")
+                return
+            
+            total_value = 0.0
+            
             for currency_code, wallet in portfolio.wallets.items():
                 balance = wallet.balance
                 
                 if currency_code == base_currency:
                     value = balance
-                    rate_info = "1.0000"
+                    print(f"  - {currency_code}: {balance:.2f} → {value:.2f} {base_currency}")
                 else:
                     rate = self.rate_service.get_rate(currency_code, base_currency)
                     if rate:
                         value = balance * rate
-                        rate_info = f"{rate:.4f}"
+                        print(f"  - {currency_code}: {balance:.4f} → {value:.2f} {base_currency} (rate: {rate:.4f})")
                     else:
                         value = 0
-                        rate_info = "N/A"
+                        print(f"  - {currency_code}: {balance:.4f} → rate unavailable")
                 
                 total_value += value
-                print(f"- {currency_code}: {balance:12.4f} → {value:12.4f} {base_currency} (rate: {rate_info})")
             
-            print("-" * 50)
-            print(f"TOTAL: {total_value:12.4f} {base_currency}")
+            print("-" * 40)
+            print(f"TOTAL: {total_value:,.2f} {base_currency}")
             
         except Exception as e:
-            print(f"Error showing portfolio: {e}")
-
-    def _handle_buy(self, command: str):
-        if not self.user_manager.current_user:
-            print("Please login first")
-            return
-        
-        args = self._parse_args(command)
-        
-        currency = args.get("currency")
-        amount_str = args.get("amount")
-        
-        if not currency or not amount_str:
-            print("Usage: buy --currency <code> --amount <amount>")
+            print(f"Error getting portfolio: {e}")
+    
+    def buy(self, args):
+        """Команда buy - купить валюту"""
+        if not self.current_user:
+            print("Error: Please login first")
             return
         
         try:
-            amount = float(amount_str)
             result = self.portfolio_manager.buy_currency(
-                self.user_manager.current_user.user_id,
-                currency,
-                amount
+                self.current_user.user_id, 
+                args.currency, 
+                args.amount
             )
             
-            print(f"Purchase completed: {amount:.4f} {currency}")
-            if result["rate"]:
-                print(f"Exchange rate: {result['rate']:.4f} {currency}/USD")
-                print(f"Estimated cost: {result['estimated_cost']:.2f} USD")
-            print(f"New balance: {result['new_balance']:.4f} {currency}")
+            print(f"Purchase completed: {result['amount']:.4f} {result['currency']}")
             
-        except (ValueError, TypeError) as e:
-            print(f"Purchase failed: {e}")
-
-    def _handle_sell(self, command: str):
-        if not self.user_manager.current_user:
-            print("Please login first")
-            return
-        
-        args = self._parse_args(command)
-        
-        currency = args.get("currency")
-        amount_str = args.get("amount")
-        
-        if not currency or not amount_str:
-            print("Usage: sell --currency <code> --amount <amount>")
+            if result['rate']:
+                print(f"At rate: {result['rate']:.2f} USD/{result['currency']}")
+                if result['estimated_cost']:
+                    print(f"Estimated cost: {result['estimated_cost']:,.2f} USD")
+            
+            print("Portfolio changes:")
+            print(f"  - {result['currency']}: was {result['old_balance']:.4f} → now {result['new_balance']:.4f}")
+            
+        except (CurrencyNotFoundError, ValueError) as e:
+            print(f"Error: {e}")
+    
+    def sell(self, args):
+        """Команда sell - продать валюту"""
+        if not self.current_user:
+            print("Error: Please login first")
             return
         
         try:
-            amount = float(amount_str)
             result = self.portfolio_manager.sell_currency(
-                self.user_manager.current_user.user_id,
-                currency,
-                amount
+                self.current_user.user_id, 
+                args.currency, 
+                args.amount
             )
             
-            print(f"Sale completed: {amount:.4f} {currency}")
-            if result["rate"]:
-                print(f"Exchange rate: {result['rate']:.4f} {currency}/USD")
-                print(f"Estimated revenue: {result['estimated_revenue']:.2f} USD")
-            print(f"New balance: {result['new_balance']:.4f} {currency}")
+            print(f"Sale completed: {result['amount']:.4f} {result['currency']}")
             
-        except (ValueError, TypeError) as e:
-            print(f"Sale failed: {e}")
-
-    def _handle_get_rate(self, command: str):
-        args = self._parse_args(command)
-        
-        from_currency = args.get("from")
-        to_currency = args.get("to")
-        
-        if not from_currency or not to_currency:
-            print("Usage: get-rate --from <currency> --to <currency>")
-            return
-        
+            if result['rate']:
+                print(f"At rate: {result['rate']:.2f} USD/{result['currency']}")
+                if result['estimated_revenue']:
+                    print(f"Estimated revenue: {result['estimated_revenue']:,.2f} USD")
+            
+            print("Portfolio changes:")
+            print(f"  - {result['currency']}: was {result['old_balance']:.4f} → now {result['new_balance']:.4f}")
+            
+        except (CurrencyNotFoundError, InsufficientFundsError, ValueError) as e:
+            print(f"Error: {e}")
+    
+    def get_rate(self, args):
+        """Команда get-rate - получить курс валюты"""
         try:
-            rate = self.rate_service.get_rate(from_currency.upper(), to_currency.upper())
+            from_currency = args.from_currency.upper()
+            to_currency = args.to_currency.upper()
+            
+            rate = self.rate_service.get_rate(from_currency, to_currency)
+            
             if rate:
-                rates_data = self.rate_service.get_rates()
-                updated_at = rates_data.get("last_refresh", "Unknown")
+                rates = self.rate_service.get_rates()
+                updated_at = rates.get("last_refresh", "unknown")
                 
-                print(f"Exchange rate {from_currency}→{to_currency}: {rate:.6f}")
-                print(f"Reverse rate {to_currency}→{from_currency}: {1/rate:.6f}")
-                print(f"Updated: {updated_at}")
+                print(f"Rate {from_currency}→{to_currency}: {rate:.6f} (updated: {updated_at})")
+                
+                # Показываем обратный курс
+                reverse_rate = 1.0 / rate if rate != 0 else 0
+                print(f"Reverse rate {to_currency}→{from_currency}: {reverse_rate:.6f}")
             else:
-                print(f"Exchange rate {from_currency}→{to_currency} not available")
+                print(f"Rate {from_currency}→{to_currency} unavailable. Try again later.")
                 
         except Exception as e:
             print(f"Error getting rate: {e}")
+    
+    def list_currencies(self, args):
+        """Команда list-currencies - показать список валют"""
+        currencies = get_all_currencies()
+        
+        print("Supported currencies:")
+        print("-" * 80)
+        
+        fiats = []
+        cryptos = []
+        
+        for currency in currencies.values():
+            if hasattr(currency, 'issuing_country'):
+                fiats.append(currency)
+            else:
+                cryptos.append(currency)
+        
+        if fiats:
+            print("\nFiat currencies:")
+            for currency in fiats:
+                print(f"  {currency.get_display_info()}")
+        
+        if cryptos:
+            print("\nCryptocurrencies:")
+            for currency in cryptos:
+                print(f"  {currency.get_display_info()}")
+    
+    def _parse_input(self, user_input: str):
+        """Парсит ввод пользователя в аргументы"""
+        import shlex
+        try:
+            parts = shlex.split(user_input)
+            if not parts:
+                return None
+            
+            command = parts[0]
+            args_list = parts[1:]
+            
+            # Создаем парсер для конкретной команды
+            parser = self._create_parser_for_command(command)
+            if not parser:
+                return None
+                
+            return parser.parse_args(args_list)
+        except (ValueError, SystemExit):
+            return None
+    
+    def _create_parser_for_command(self, command: str):
+        """Создает парсер для конкретной команды"""
+        parser = argparse.ArgumentParser(prog=command, add_help=False)
+        
+        if command == "register":
+            parser.add_argument('--username', required=True)
+            parser.add_argument('--password', required=True)
+        elif command == "login":
+            parser.add_argument('--username', required=True)
+            parser.add_argument('--password', required=True)
+        elif command == "show-portfolio":
+            parser.add_argument('--base', required=False)
+        elif command == "buy":
+            parser.add_argument('--currency', required=True)
+            parser.add_argument('--amount', type=float, required=True)
+        elif command == "sell":
+            parser.add_argument('--currency', required=True)
+            parser.add_argument('--amount', type=float, required=True)
+        elif command == "get-rate":
+            parser.add_argument('--from', dest='from_currency', required=True)
+            parser.add_argument('--to', dest='to_currency', required=True)
+        elif command == "list-currencies":
+            pass  # Нет аргументов
+        else:
+            return None
+            
+        return parser
+    
+    def _print_help(self):
+        """Показывает справку по командам"""
+        print("\nAvailable commands:")
+        print("  register --username <username> --password <password>")
+        print("  login --username <username> --password <password>")
+        print("  show-portfolio [--base <currency>]")
+        print("  buy --currency <code> --amount <amount>")
+        print("  sell --currency <code> --amount <amount>")
+        print("  get-rate --from <currency> --to <currency>")
+        print("  list-currencies")
+        print("  help")
+        print("  exit")
+        print("\nExamples:")
+        print("  register --username alice --password 1234")
+        print("  buy --currency BTC --amount 0.05")
+        print("  get-rate --from USD --to BTC")
+    
+    def run(self):
+        """Запуск интерактивного CLI интерфейса"""
+        print("=== ValutaTrade Hub ===")
+        print("Type 'help' for available commands, 'exit' to quit")
+        
+        while True:
+            try:
+                # Показываем prompt с именем пользователя если залогинены
+                prompt = "valutatrade"
+                if self.current_user:
+                    prompt = f"valutatrade[{self.current_user.username}]"
+                
+                user_input = input(f"\n{prompt}> ").strip()
+                
+                if not user_input:
+                    continue
+                
+                if user_input.lower() in ['exit', 'quit']:
+                    print("Goodbye!")
+                    break
+                
+                if user_input.lower() == 'help':
+                    self._print_help()
+                    continue
+                
+                # Парсим и выполняем команду
+                args = self._parse_input(user_input)
+                if not args:
+                    print(f"Unknown command or invalid arguments: {user_input}")
+                    print("Type 'help' for available commands")
+                    continue
+                
+                # Определяем команду из ввода
+                command_parts = user_input.split()
+                command = command_parts[0].replace('-', '_')
+                
+                # Выполняем команду
+                if hasattr(self, command):
+                    command_method = getattr(self, command)
+                    command_method(args)
+                else:
+                    print(f"Unknown command: {command_parts[0]}")
+                    
+            except KeyboardInterrupt:
+                print("\n\nGoodbye!")
+                break
+            except Exception as e:
+                print(f"Unexpected error: {e}")
