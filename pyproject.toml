@@ -1,5 +1,5 @@
 [project]
-name = "finalproject-ovsyannikov-sergey-m25-555"
+name = "finalproject_Ovsyannikov_Sergey_M25-555"
 version = "0.1.0"
 description = ""
 authors = [
@@ -10,7 +10,14 @@ requires-python = ">=3.12"
 dependencies = [
 ]
 
+[tool.poetry]
+packages = [
+     { include = "valutatrade_hub", from = "." },
+ ]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+project = "main:main"
