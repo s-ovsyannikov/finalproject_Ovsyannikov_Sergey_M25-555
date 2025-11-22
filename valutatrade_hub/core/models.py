@@ -2,6 +2,7 @@ import hashlib
 import secrets
 from datetime import datetime
 from typing import Dict, Optional
+
 from .exceptions import InsufficientFundsError
 
 

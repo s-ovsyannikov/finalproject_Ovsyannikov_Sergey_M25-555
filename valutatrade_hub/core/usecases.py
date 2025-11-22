@@ -1,11 +1,12 @@
-from typing import Optional, Dict, Any
-from datetime import datetime
 import secrets
-from .models import User, Portfolio
-from .utils import DataManager, ExchangeRateService, validate_amount
-from .exceptions import InsufficientFundsError, CurrencyNotFoundError
-from .currencies import get_currency
+from datetime import datetime
+from typing import Any, Dict, Optional
+
 from ..decorators import log_action
+from .currencies import get_currency
+from .exceptions import CurrencyNotFoundError, InsufficientFundsError
+from .models import Portfolio, User
+from .utils import DataManager, ExchangeRateService, validate_amount
 
 
 class UserManager:

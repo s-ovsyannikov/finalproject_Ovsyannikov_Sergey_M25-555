@@ -1,9 +1,11 @@
-import requests
 import logging
 from abc import ABC, abstractmethod
 from typing import Dict
-from .config import ParserConfig
+
+import requests
+
 from ..core.exceptions import ApiRequestError
+from .config import ParserConfig
 
 
 class BaseApiClient(ABC):

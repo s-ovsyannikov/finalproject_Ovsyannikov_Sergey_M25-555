@@ -1,13 +1,14 @@
 import argparse
 from typing import Optional
-from ..core.utils import DataManager, ExchangeRateService
-from ..core.usecases import UserManager, PortfolioManager
-from ..core.exceptions import InsufficientFundsError, CurrencyNotFoundError
+
 from ..core.currencies import get_all_currencies
+from ..core.exceptions import CurrencyNotFoundError, InsufficientFundsError
 from ..core.models import User
-from ..parser_service.updater import RatesUpdater
-from ..parser_service.storage import RatesStorage
+from ..core.usecases import PortfolioManager, UserManager
+from ..core.utils import DataManager, ExchangeRateService
 from ..parser_service.config import ParserConfig
+from ..parser_service.storage import RatesStorage
+from ..parser_service.updater import RatesUpdater
 
 
 class CLIInterface:

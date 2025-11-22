@@ -1,25 +1,25 @@
 {
   "pairs": {
-    "EUR_USD": {
-      "rate": 0.8682,
-      "updated_at": "2025-11-22T19:53:59.715621",
+    "BTC_USD": {
+      "rate": 84628,
+      "updated_at": "2025-11-22T20:28:19.977390",
       "source": "ParserService"
     },
-    "GBP_USD": {
-      "rate": 0.7637,
-      "updated_at": "2025-11-22T19:53:59.715626",
+    "ETH_USD": {
+      "rate": 2755.22,
+      "updated_at": "2025-11-22T20:28:19.977395",
       "source": "ParserService"
     },
-    "RUB_USD": {
-      "rate": 79.4101,
-      "updated_at": "2025-11-22T19:53:59.715630",
+    "LTC_USD": {
+      "rate": 82.16,
+      "updated_at": "2025-11-22T20:28:19.977399",
       "source": "ParserService"
     },
-    "JPY_USD": {
-      "rate": 156.7591,
-      "updated_at": "2025-11-22T19:53:59.715633",
+    "ADA_USD": {
+      "rate": 0.401075,
+      "updated_at": "2025-11-22T20:28:19.977402",
       "source": "ParserService"
     }
   },
-  "last_refresh": "2025-11-22T19:53:59.715604"
+  "last_refresh": "2025-11-22T20:28:19.977375"
 }

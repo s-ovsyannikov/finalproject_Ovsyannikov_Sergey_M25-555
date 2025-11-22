@@ -1,7 +1,8 @@
 import functools
 import logging
-from typing import Any, Callable, Dict
 from datetime import datetime
+from typing import Any, Callable, Dict
+
 
 def log_action(action_name: str = None, verbose: bool = False):
     """

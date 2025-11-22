@@ -1,9 +1,10 @@
 import logging
 from typing import Dict
-from .config import ParserConfig
-from .api_clients import CoinGeckoClient, ExchangeRateApiClient
-from .storage import RatesStorage
+
 from ..core.exceptions import ApiRequestError
+from .api_clients import CoinGeckoClient, ExchangeRateApiClient
+from .config import ParserConfig
+from .storage import RatesStorage
 
 
 class RatesUpdater:

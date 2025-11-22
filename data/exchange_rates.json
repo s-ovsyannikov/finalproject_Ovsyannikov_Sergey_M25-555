@@ -142,5 +142,53 @@
       "request_ms": 0,
       "status_code": 200
     }
+  },
+  {
+    "id": "BTC_USD_2025-11-22T20:28:19.970526",
+    "from_currency": "BTC",
+    "to_currency": "USD",
+    "rate": 84628,
+    "timestamp": "2025-11-22T20:28:19.970541",
+    "source": "COINGECKO",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "ETH_USD_2025-11-22T20:28:19.973110",
+    "from_currency": "ETH",
+    "to_currency": "USD",
+    "rate": 2755.22,
+    "timestamp": "2025-11-22T20:28:19.973129",
+    "source": "COINGECKO",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "LTC_USD_2025-11-22T20:28:19.974441",
+    "from_currency": "LTC",
+    "to_currency": "USD",
+    "rate": 82.16,
+    "timestamp": "2025-11-22T20:28:19.974456",
+    "source": "COINGECKO",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "ADA_USD_2025-11-22T20:28:19.975723",
+    "from_currency": "ADA",
+    "to_currency": "USD",
+    "rate": 0.401075,
+    "timestamp": "2025-11-22T20:28:19.975743",
+    "source": "COINGECKO",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
   }
 ]
