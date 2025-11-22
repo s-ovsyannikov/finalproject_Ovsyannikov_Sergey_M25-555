@@ -15,7 +15,7 @@ ValutaTrade Hub - это платформа, которая позволяет �
 - **Parser Service** - микросервис для получения актуальных курсов валют
 
 ## Структура проекта
-
+```markdown
 finalproject_Ovsyannikov_Sergey_M25-555/
 │
 ├── data/ # Хранилище данных
@@ -51,7 +51,7 @@ finalproject_Ovsyannikov_Sergey_M25-555/
 ├── Makefile # Автоматизация задач
 ├── pyproject.toml # Конфигурация Poetry
 └── README.md # Документация
-
+```
 
 ## Установка
 
