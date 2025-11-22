@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Any, Dict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class DataManager:
@@ -46,39 +46,54 @@ class DataManager:
 class ExchangeRateService:
     def __init__(self, data_manager: DataManager):
         self.data_manager = data_manager
-        self._default_rates = {
-            "EUR_USD": {"rate": 1.0786, "updated_at": datetime.now().isoformat()},
-            "BTC_USD": {"rate": 59337.21, "updated_at": datetime.now().isoformat()},
-            "RUB_USD": {"rate": 0.01016, "updated_at": datetime.now().isoformat()},
-            "ETH_USD": {"rate": 3720.00, "updated_at": datetime.now().isoformat()},
-            "source": "ParserService",
-            "last_refresh": datetime.now().isoformat()
-        }
+        self._default_rates = {}
 
     def get_rates(self) -> Dict:
-        """загрузка котировок"""
+        """загрузка котировок из rates.json"""
         rates = self.data_manager.load_json("rates.json")
         if not rates:
-            rates = self._default_rates
-            self.data_manager.save_json("rates.json", rates)
+            return {"pairs": {}, "last_refresh": None}
         return rates
 
-    def get_rate(self, from_currency: str, to_currency: str):
-        """получение обменного курса"""
+    def get_rate(self, from_currency: str, to_currency: str) -> float:
+        """получает обменный курс из актуальных данных"""
         if from_currency == to_currency:
             return 1.0
         
         rates = self.get_rates()
-        rate_key = f"{from_currency}_{to_currency}"
         
-        if rate_key in rates:
-            return rates[rate_key]["rate"]
+        rate_key = f"{from_currency}_{to_currency}"
+        if rate_key in rates.get("pairs", {}):
+            return rates["pairs"][rate_key]["rate"]
         
         reverse_key = f"{to_currency}_{from_currency}"
-        if reverse_key in rates:
-            return 1.0 / rates[reverse_key]["rate"]
+        if reverse_key in rates.get("pairs", {}):
+            return 1.0 / rates["pairs"][reverse_key]["rate"]
+        
+        if from_currency != "USD" and to_currency != "USD":
+            usd_from = self.get_rate(from_currency, "USD")
+            usd_to = self.get_rate(to_currency, "USD")
+            if usd_from and usd_to:
+                return usd_from / usd_to
         
         return None
+def is_rates_fresh(self, ttl_seconds: int = 300) -> bool:
+        """проверка актуальности курсов"""
+        rates = self.get_rates()
+        if "last_refresh" not in rates or not rates["last_refresh"]:
+            return False
+        
+        try:
+            last_refresh = datetime.fromisoformat(rates["last_refresh"])
+            return (datetime.now() - last_refresh) < timedelta(seconds=ttl_seconds)
+        except (ValueError, KeyError):
+            return False
+
+def update_rates(self, new_rates: Dict):
+        """обнолвление курсов"""
+        current_rates = self.get_rates()
+        current_rates.update(new_rates)
+        self.data_manager.save_json("rates.json", current_rates)
 
 
 def validate_currency_code(currency_code: str) -> bool:

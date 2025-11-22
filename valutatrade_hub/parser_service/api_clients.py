@@ -63,6 +63,7 @@ class CoinGeckoClient(BaseApiClient):
 
 
 class ExchangeRateApiClient(BaseApiClient):
+
     """клиент для ExchangeRate-API"""
     
     def fetch_rates(self) -> Dict[str, float]:
@@ -82,10 +83,14 @@ class ExchangeRateApiClient(BaseApiClient):
                 raise ApiRequestError(f"API error: {data.get('error-type', 'Unknown error')}")
             
             rates = {}
+
+            available_currencies = list(data.get("conversion_rates", {}).keys())
+            self.logger.info(f"Available currencies from API: {len(available_currencies)} currencies")
+
             for currency in self.config.FIAT_CURRENCIES:
-                if currency in data.get("rates", {}):
+                if currency in data.get("conversion_rates", {}):
                     rate_key = f"{currency}_{self.config.BASE_CURRENCY}"
-                    rates[rate_key] = data["rates"][currency]
+                    rates[rate_key] = data["conversion_rates"][currency]
             
             self.logger.info(f"Fetched {len(rates)} fiat rates")
             return rates

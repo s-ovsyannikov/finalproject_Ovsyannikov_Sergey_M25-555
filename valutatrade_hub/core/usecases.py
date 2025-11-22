@@ -117,7 +117,9 @@ class PortfolioManager:
         
         try:
             rate = self.rate_service.get_rate(currency_code, "USD")
-            estimated_cost = amount * rate
+            estimated_cost = amount * rate if rate else None
+
+            
         except CurrencyNotFoundError:
             rate = None
             estimated_cost = None
@@ -160,7 +162,9 @@ class PortfolioManager:
         
         try:
             rate = self.rate_service.get_rate(currency_code, "USD")
-            estimated_revenue = amount * rate
+            estimated_revenue = amount * rate if rate else None
+            
+                    
         except CurrencyNotFoundError:
             rate = None
             estimated_revenue = None

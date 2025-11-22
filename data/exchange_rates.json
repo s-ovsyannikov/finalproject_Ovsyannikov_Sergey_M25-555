@@ -46,5 +46,101 @@
       "request_ms": 0,
       "status_code": 200
     }
+  },
+  {
+    "id": "BTC_USD_2025-11-22T19:05:21.641048",
+    "from_currency": "BTC",
+    "to_currency": "USD",
+    "rate": 84213,
+    "timestamp": "2025-11-22T19:05:21.641061",
+    "source": "COINGECKO",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "ETH_USD_2025-11-22T19:05:21.642053",
+    "from_currency": "ETH",
+    "to_currency": "USD",
+    "rate": 2735.43,
+    "timestamp": "2025-11-22T19:05:21.642070",
+    "source": "COINGECKO",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "LTC_USD_2025-11-22T19:05:21.653443",
+    "from_currency": "LTC",
+    "to_currency": "USD",
+    "rate": 81.44,
+    "timestamp": "2025-11-22T19:05:21.653468",
+    "source": "COINGECKO",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "ADA_USD_2025-11-22T19:05:21.654420",
+    "from_currency": "ADA",
+    "to_currency": "USD",
+    "rate": 0.397665,
+    "timestamp": "2025-11-22T19:05:21.654438",
+    "source": "COINGECKO",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "EUR_USD_2025-11-22T19:53:59.697797",
+    "from_currency": "EUR",
+    "to_currency": "USD",
+    "rate": 0.8682,
+    "timestamp": "2025-11-22T19:53:59.697811",
+    "source": "EXCHANGERATE",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "GBP_USD_2025-11-22T19:53:59.698976",
+    "from_currency": "GBP",
+    "to_currency": "USD",
+    "rate": 0.7637,
+    "timestamp": "2025-11-22T19:53:59.698994",
+    "source": "EXCHANGERATE",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "RUB_USD_2025-11-22T19:53:59.712087",
+    "from_currency": "RUB",
+    "to_currency": "USD",
+    "rate": 79.4101,
+    "timestamp": "2025-11-22T19:53:59.712115",
+    "source": "EXCHANGERATE",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
+  },
+  {
+    "id": "JPY_USD_2025-11-22T19:53:59.713559",
+    "from_currency": "JPY",
+    "to_currency": "USD",
+    "rate": 156.7591,
+    "timestamp": "2025-11-22T19:53:59.713583",
+    "source": "EXCHANGERATE",
+    "meta": {
+      "request_ms": 0,
+      "status_code": 200
+    }
   }
 ]
