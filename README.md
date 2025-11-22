@@ -166,6 +166,7 @@ show-portfolio --base EUR
 ```
 ### Запись сеанса работы
 
+[![asciicast](https://asciinema.org/a/iFwCHfSHO77X2MOMQmTfwUhIx.svg)](https://asciinema.org/a/iFwCHfSHO77X2MOMQmTfwUhIx)
 
 ### Автор
 

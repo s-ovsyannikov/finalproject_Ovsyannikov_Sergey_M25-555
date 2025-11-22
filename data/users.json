@@ -12,5 +12,19 @@
     "hashed_password": "f39901f2fbc94104e80b9795552f0fcfdad5fedf0bd7dcba8209552498349083",
     "salt": "5b7ff6eeafd2c926",
     "registration_date": "2025-11-22T20:24:40.452354"
+  },
+  {
+    "user_id": 3,
+    "username": "demo",
+    "hashed_password": "ffecdda8f34841c7bd6223b5e6384c048e6a194f258b925829f0bde09efa6a1a",
+    "salt": "d9568b4b1ec0b8bf",
+    "registration_date": "2025-11-22T21:04:06.882579"
+  },
+  {
+    "user_id": 4,
+    "username": "trader",
+    "hashed_password": "4e1177d7fd33cb047ef282abf876cab8619fd9167a3fc1173d7b1aaa11906568",
+    "salt": "5c20ea13a01f07d3",
+    "registration_date": "2025-11-22T21:13:10.416016"
   }
 ]

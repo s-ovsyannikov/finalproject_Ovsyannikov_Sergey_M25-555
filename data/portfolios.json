@@ -32,5 +32,43 @@
         "balance": 1500.0
       }
     }
+  },
+  {
+    "user_id": 3,
+    "wallets": {
+      "BTC": {
+        "currency_code": "BTC",
+        "balance": 0.01
+      },
+      "ETH": {
+        "currency_code": "ETH",
+        "balance": 0.5
+      },
+      "EUR": {
+        "currency_code": "EUR",
+        "balance": 200.0
+      }
+    }
+  },
+  {
+    "user_id": 4,
+    "wallets": {
+      "BTC": {
+        "currency_code": "BTC",
+        "balance": 0.05
+      },
+      "ETH": {
+        "currency_code": "ETH",
+        "balance": 2.0
+      },
+      "EUR": {
+        "currency_code": "EUR",
+        "balance": 300.0
+      },
+      "JPY": {
+        "currency_code": "JPY",
+        "balance": 10000.0
+      }
+    }
   }
 ]
