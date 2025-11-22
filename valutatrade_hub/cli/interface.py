@@ -5,6 +5,9 @@ from ..core.usecases import UserManager, PortfolioManager
 from ..core.exceptions import InsufficientFundsError, CurrencyNotFoundError
 from ..core.currencies import get_all_currencies
 from ..core.models import User
+from ..parser_service.updater import RatesUpdater
+from ..parser_service.storage import RatesStorage
+from ..parser_service.config import ParserConfig
 
 
 class CLIInterface:
@@ -14,9 +17,11 @@ class CLIInterface:
         self.user_manager = UserManager(self.data_manager)
         self.portfolio_manager = PortfolioManager(self.data_manager, self.rate_service)
         self.current_user: Optional[User] = None
+        self.rates_updater = RatesUpdater()
+        self.rates_storage = RatesStorage(ParserConfig())
     
     def register(self, args):
-        """Команда register - создать нового пользователя"""
+        """register - создать нового пользователя"""
         try:
             user = self.user_manager.register_user(args.username, args.password)
             print(f"User '{user.username}' registered (id={user.user_id}). Login: login --username {user.username} --password ****")
@@ -24,7 +29,7 @@ class CLIInterface:
             print(f"Error: {e}")
     
     def login(self, args):
-        """Команда login - войти в систему"""
+        """login - войти в систему"""
         try:
             self.current_user = self.user_manager.login(args.username, args.password)
             print(f"Logged in as '{self.current_user.username}'")
@@ -32,7 +37,7 @@ class CLIInterface:
             print(f"Error: {e}")
     
     def show_portfolio(self, args):
-        """Команда show-portfolio - показать портфель"""
+        """show-portfolio - показать портфель"""
         if not self.current_user:
             print("Error: Please login first")
             return
@@ -74,7 +79,7 @@ class CLIInterface:
             print(f"Error getting portfolio: {e}")
     
     def buy(self, args):
-        """Команда buy - купить валюту"""
+        """buy - купить валюту"""
         if not self.current_user:
             print("Error: Please login first")
             return
@@ -100,7 +105,7 @@ class CLIInterface:
             print(f"Error: {e}")
     
     def sell(self, args):
-        """Команда sell - продать валюту"""
+        """sell - продать валюту"""
         if not self.current_user:
             print("Error: Please login first")
             return
@@ -126,7 +131,7 @@ class CLIInterface:
             print(f"Error: {e}")
     
     def get_rate(self, args):
-        """Команда get-rate - получить курс валюты"""
+        """get-rate - получить курс валюты"""
         try:
             from_currency = args.from_currency.upper()
             to_currency = args.to_currency.upper()
@@ -139,7 +144,6 @@ class CLIInterface:
                 
                 print(f"Rate {from_currency}→{to_currency}: {rate:.6f} (updated: {updated_at})")
                 
-                # Показываем обратный курс
                 reverse_rate = 1.0 / rate if rate != 0 else 0
                 print(f"Reverse rate {to_currency}→{from_currency}: {reverse_rate:.6f}")
             else:
@@ -149,7 +153,7 @@ class CLIInterface:
             print(f"Error getting rate: {e}")
     
     def list_currencies(self, args):
-        """Команда list-currencies - показать список валют"""
+        """list-currencies - показать список валют"""
         currencies = get_all_currencies()
         
         print("Supported currencies:")
@@ -174,8 +178,60 @@ class CLIInterface:
             for currency in cryptos:
                 print(f"  {currency.get_display_info()}")
     
+    def update_rates(self, args):
+        """update-rates - обновление курсов валют"""
+        try:
+            source = args.source.lower() if args.source else None
+            rates = self.rates_updater.run_update(source)
+
+            if rates:
+                print(f"Update successful. Total rates updated: {len(rates)}")
+
+                current_data = self.rates_storage.load_current_rates()
+                if current_data.get("last_refresh"):
+                    print(f"Last refresh: {current_data['last_refresh']}")
+            else:
+                print("No rates were updated. Check logs for details.")
+        except Exception as e:
+            print(f"Update failed: {e}")
+
+    def show_rates(self, args):
+        """show-rates - показать курсы из кэша"""
+        try:
+            current_data = self.rates_storage.load_current_rates()
+            
+            if not current_data.get("pairs"):
+                print("Local rates cache is empty. Run 'update-rates' to load data.")
+                return
+            
+            pairs = current_data["pairs"]
+            filtered_pairs = {}
+            
+            if args.currency:
+                currency = args.currency.upper()
+                for pair, data in pairs.items():
+                    if pair.startswith(currency + "_") or pair.endswith("_" + currency):
+                        filtered_pairs[pair] = data
+            else:
+                filtered_pairs = pairs
+            
+            sorted_pairs = sorted(filtered_pairs.items(), 
+                                key=lambda x: x[1]["rate"], 
+                                reverse=True)
+            
+            if args.top:
+                sorted_pairs = sorted_pairs[:args.top]
+            
+            print(f"Rates from cache (updated at {current_data.get('last_refresh', 'unknown')}):")
+            for pair, data in sorted_pairs:
+                print(f"- {pair}: {data['rate']} (source: {data.get('source', 'unknown')})")
+                
+        except Exception as e:
+            print(f"Error showing rates: {e}")   
+
+
     def _parse_input(self, user_input: str):
-        """Парсит ввод пользователя в аргументы"""
+        """парсинг ввода пользователя в аргументы"""
         import shlex
         try:
             parts = shlex.split(user_input)
@@ -185,7 +241,6 @@ class CLIInterface:
             command = parts[0]
             args_list = parts[1:]
             
-            # Создаем парсер для конкретной команды
             parser = self._create_parser_for_command(command)
             if not parser:
                 return None
@@ -195,7 +250,7 @@ class CLIInterface:
             return None
     
     def _create_parser_for_command(self, command: str):
-        """Создает парсер для конкретной команды"""
+        """парсинг для конкретной команды"""
         parser = argparse.ArgumentParser(prog=command, add_help=False)
         
         if command == "register":
@@ -215,15 +270,21 @@ class CLIInterface:
         elif command == "get-rate":
             parser.add_argument('--from', dest='from_currency', required=True)
             parser.add_argument('--to', dest='to_currency', required=True)
+        elif command == "update-rates":
+            parser.add_argument('--source', required=False)
+        elif command == "show-rates":
+            parser.add_argument('--currency', required=False)
+            parser.add_argument('--top', type=int, required=False)
+            parser.add_argument('--base', required=False)
         elif command == "list-currencies":
-            pass  # Нет аргументов
+            pass
         else:
             return None
             
         return parser
     
     def _print_help(self):
-        """Показывает справку по командам"""
+        """справочная информация по командам"""
         print("\nAvailable commands:")
         print("  register --username <username> --password <password>")
         print("  login --username <username> --password <password>")
@@ -231,6 +292,8 @@ class CLIInterface:
         print("  buy --currency <code> --amount <amount>")
         print("  sell --currency <code> --amount <amount>")
         print("  get-rate --from <currency> --to <currency>")
+        print("  update-rates [--source <coingecko|exchangerate>]")
+        print("  show-rates [--currency <code>] [--top <N>] [--base <currency>]")
         print("  list-currencies")
         print("  help")
         print("  exit")
@@ -238,15 +301,16 @@ class CLIInterface:
         print("  register --username alice --password 1234")
         print("  buy --currency BTC --amount 0.05")
         print("  get-rate --from USD --to BTC")
+        print("  update-rates --source coingecko")
+        print("  show-rates --top 3")
     
     def run(self):
-        """Запуск интерактивного CLI интерфейса"""
+        """запуск интерфейса"""
         print("=== ValutaTrade Hub ===")
         print("Type 'help' for available commands, 'exit' to quit")
         
         while True:
             try:
-                # Показываем prompt с именем пользователя если залогинены
                 prompt = "valutatrade"
                 if self.current_user:
                     prompt = f"valutatrade[{self.current_user.username}]"
@@ -264,18 +328,15 @@ class CLIInterface:
                     self._print_help()
                     continue
                 
-                # Парсим и выполняем команду
                 args = self._parse_input(user_input)
                 if not args:
                     print(f"Unknown command or invalid arguments: {user_input}")
                     print("Type 'help' for available commands")
                     continue
                 
-                # Определяем команду из ввода
                 command_parts = user_input.split()
                 command = command_parts[0].replace('-', '_')
                 
-                # Выполняем команду
                 if hasattr(self, command):
                     command_method = getattr(self, command)
                     command_method(args)
